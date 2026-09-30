@@ -1,0 +1,45 @@
+name: Docker Image CI
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+  
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: [api, web]
+        
+    steps:
+    - name: Clone Docker Builder
+      uses: actions/checkout@v7
+      
+    - name: Clone Buzzkit Repo
+      uses: actions/checkout@v7
+      with:
+        repository: buzzkit-dev/buzzkit
+        ref: main
+        path: buzzkit
+  
+    - name: Log in to GHCR
+      uses: docker/login-action@v4
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      
+    - name: Build & Push to Github Registry
+      run: |
+        docker build buzzkit/ --file Dockerfile-${{ matrix.image }} --tag ${{ env.IMAGE }}
+        docker push ${{ env.IMAGE }}:$(date +%s)
+        docker push ${{ env.IMAGE }}:latest
+      env:
+        IMAGE: ghcr.io/citocafecito-homelab/buzzkit-docker/buzzkit-${{ matrix.image }}
